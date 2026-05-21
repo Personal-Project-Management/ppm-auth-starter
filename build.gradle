@@ -1,11 +1,31 @@
+import java.text.SimpleDateFormat
+
 plugins {
-    id 'java'
+    id 'java-library'
+    id 'maven-publish'
     id 'org.springframework.boot' version '3.5.14'
     id 'io.spring.dependency-management' version '1.1.7'
 }
+def buildVersion = "auth-${new SimpleDateFormat("yyyyMMdd-hhmmss").format(new Date())}-SNAPSHOT"
+
+def envFile = rootProject.file(".env")
+
+if(envFile.exists()) {
+    envFile.eachLine {line -> {
+        if (line.contains("=")) {
+            def lineValue = line.split("=", 2);
+            System.setProperty(lineValue[0].trim(), lineValue[1].trim())
+        }
+    }}
+}
+
+def GIT_USERNAME=System.getProperty("GITHUB_USERNAME")
+def GIT_PASSWORD=System.getProperty("GITHUB_PASSWORD")
+
+print "Build version: ${buildVersion}"
 
 group = 'com.ppm'
-version = '0.0.1-SNAPSHOT'
+version = buildVersion
 description = 'auth-starter'
 
 java {
@@ -19,11 +39,43 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter'
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    api 'org.springframework.boot:spring-boot-starter-web'
+    api 'org.springframework.boot:spring-boot-autoconfigure'
+    api 'org.springframework.boot:spring-boot-starter-security'
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+
+            groupId="com.ppm"
+            artifactId="auth-starter"
+            version=buildVersion
+
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            name="GitHubPackage"
+            url=uri("https://maven.pkg.github.com/Personal-Project-Management/ppm-auth-starter")
+            credentials{
+                username=GIT_USERNAME
+                password=GIT_PASSWORD
+            }
+        }
+    }
 }
